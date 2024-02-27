@@ -1,12 +1,11 @@
 import json
-import urllib.request
+import os
 from functools import lru_cache
 from ssl import SSLContext
 from typing import Any, Dict, List, Optional
 from urllib.error import URLError
 
 import urllib3
-import os
 
 from .api_jwk import PyJWK, PyJWKSet
 from .api_jwt import decode_complete as decode_token
@@ -53,14 +52,20 @@ class PyJWKClient:
     def fetch_data(self) -> Any:
         jwk_set: Any = None
         try:
-            proxy_url = os.environ.get("HTTPS_PROXY")
+            proxy_url = os.environ.get("HTTP_PROXY")
             if proxy_url:
-                proxy = urllib3.ProxyManager(proxy_url)
-                r = proxy.request(url=self.uri, headers=self.headers)
+                http = urllib3.ProxyManager(proxy_url)
             else:
-                r = urllib.request.Request(url=self.uri, headers=self.headers)
-            with urllib.request.urlopen(
-                r, timeout=self.timeout, context=self.ssl_context
+                http = urllib3.PoolManager()
+            # How to get self.ssl_context in ctx?
+            ctx = urllib3.create_urllib3_context()
+            ctx.load_default_certs()
+            with http.request(
+                "GET",
+                self.uri,
+                headers=self.headers,
+                timeout=self.timeout,
+                # ssl_context=ctx,
             ) as response:
                 jwk_set = json.load(response)
         except (URLError, TimeoutError) as e:
