@@ -5,6 +5,9 @@ from ssl import SSLContext
 from typing import Any, Dict, List, Optional
 from urllib.error import URLError
 
+import urllib3
+import os
+
 from .api_jwk import PyJWK, PyJWKSet
 from .api_jwt import decode_complete as decode_token
 from .exceptions import PyJWKClientConnectionError, PyJWKClientError
@@ -50,7 +53,12 @@ class PyJWKClient:
     def fetch_data(self) -> Any:
         jwk_set: Any = None
         try:
-            r = urllib.request.Request(url=self.uri, headers=self.headers)
+            proxy_url = os.environ.get("HTTPS_PROXY")
+            if proxy_url:
+                proxy = urllib3.ProxyManager(proxy_url)
+                r = proxy.request(url=self.uri, headers=self.headers)
+            else:
+                r = urllib.request.Request(url=self.uri, headers=self.headers)
             with urllib.request.urlopen(
                 r, timeout=self.timeout, context=self.ssl_context
             ) as response:
